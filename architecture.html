@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Banking Lakehouse Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2230;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --green: #3fb950;
+    --green-dim: #1a3a1f;
+    --green-border: #2ea043;
+    --orange: #f0883e;
+    --orange-dim: #3a1e0a;
+    --orange-border: #c46b1e;
+    --blue: #58a6ff;
+    --blue-dim: #0d2545;
+    --blue-border: #1f6feb;
+    --gold: #d29922;
+    --gold-dim: #2d1f00;
+    --gold-border: #9e6a03;
+    --purple: #bc8cff;
+    --purple-dim: #1e1030;
+    --purple-border: #8957e5;
+    --pink: #f778ba;
+    --pink-dim: #2d0f1e;
+    --pink-border: #da3a6a;
+    --red: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', monospace;
+    padding: 32px 24px 48px;
+    min-width: 1300px;
+    line-height: 1.5;
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+  .header-left h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .header-left p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: 0.3px;
+  }
+  .badge-azure  { background: #0d2545; color: #58a6ff; border-color: #1f6feb; }
+  .badge-db     { background: #2a1205; color: #f0883e; border-color: #c46b1e; }
+  .badge-dbt    { background: #1e0a1a; color: #f778ba; border-color: #da3a6a; }
+  .badge-unity  { background: #0d1f0d; color: #3fb950; border-color: #2ea043; }
+  .badge-delta  { background: #1a1a2e; color: #bc8cff; border-color: #8957e5; }
+
+  /* ─── MAIN PIPELINE GRID ─── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: 210px 26px 195px 26px 205px 26px 215px 26px 185px;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  /* ─── LANES ─── */
+  .lane {
+    border-radius: 8px;
+    border: 1px solid;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .lane-header {
+    padding: 9px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid;
+  }
+  .lane-body { padding: 10px 9px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+  .lane-ingest  { background: var(--green-dim); border-color: var(--green-border); }
+  .lane-ingest .lane-header  { background: rgba(63,185,80,.15); border-color: var(--green-border); color: var(--green); }
+
+  .lane-bronze  { background: var(--orange-dim); border-color: var(--orange-border); }
+  .lane-bronze .lane-header  { background: rgba(240,136,62,.15); border-color: var(--orange-border); color: var(--orange); }
+
+  .lane-silver  { background: var(--blue-dim); border-color: var(--blue-border); }
+  .lane-silver .lane-header  { background: rgba(88,166,255,.15); border-color: var(--blue-border); color: var(--blue); }
+
+  .lane-gold    { background: var(--gold-dim); border-color: var(--gold-border); }
+  .lane-gold .lane-header    { background: rgba(210,153,34,.15); border-color: var(--gold-border); color: var(--gold); }
+
+  .lane-consume { background: var(--purple-dim); border-color: var(--purple-border); }
+  .lane-consume .lane-header { background: rgba(188,140,255,.15); border-color: var(--purple-border); color: var(--purple); }
+
+  /* ─── NODES ─── */
+  .node {
+    border-radius: 5px;
+    border: 1px solid;
+    padding: 6px 8px;
+    font-size: 9.5px;
+  }
+  .node-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: 9px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .node-sub { color: var(--muted); font-size: 8.5px; line-height: 1.4; }
+
+  .node-src    { background: #0d1f10; border-color: #2ea043; color: #3fb950; }
+  .node-src .node-sub { color: #4c8b55; }
+  .node-tech   { background: #161b22; border-color: #30363d; color: var(--text); text-align: center; }
+  .node-tech .node-name { text-align: center; font-size: 9px; }
+  .node-bronze { background: #2a1205; border-color: #c46b1e; color: #f0883e; }
+  .node-bronze .node-sub { color: #8a5030; }
+  .node-silver { background: #0d2545; border-color: #1f6feb; color: #58a6ff; }
+  .node-silver .node-sub { color: #3a6090; }
+  .node-gold   { background: #2d1f00; border-color: #9e6a03; color: #d29922; }
+  .node-gold .node-sub { color: #7a5510; }
+  .node-dbt    { background: #2d0f1e; border-color: #da3a6a; color: #f778ba; }
+  .node-dbt .node-name { font-size: 8.5px; }
+  .node-dbt .node-sub  { color: #8a3a5a; font-size: 8px; }
+  .node-consume{ background: #1e1030; border-color: #8957e5; color: #bc8cff; }
+  .node-consume .node-sub { color: #5a3a90; }
+
+  /* ─── SECTION DIVIDER inside lane ─── */
+  .section-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .lane-note {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 7.5px;
+    color: var(--muted);
+    background: rgba(255,255,255,.04);
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    line-height: 1.5;
+    margin-bottom: 2px;
+  }
+
+  /* ─── ARROWS ─── */
+  .pipe {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    padding: 38px 0 12px;
+    gap: 0;
+  }
+  .pipe-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .pipe-line { width: 2px; height: 22px; background: var(--border); }
+  .pipe-head {
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--border);
+  }
+  .pipe-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 7px;
+    color: var(--muted);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── BOTTOM BARS ─── */
+  .bottom-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .bottom-bar {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg2);
+  }
+  .bottom-bar-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .bottom-bar-desc {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ─── FOLDER STRUCTURE SECTION ─── */
+  .folder-section {
+    margin-top: 36px;
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+  }
+  .folder-section h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 18px;
+    letter-spacing: 0.5px;
+  }
+  .folder-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .folder-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .folder-card-header {
+    padding: 8px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .folder-card-body {
+    padding: 10px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+  .folder-card-body .dir  { color: var(--blue); }
+  .folder-card-body .file { color: var(--muted); }
+  .folder-card-body .file-py  { color: var(--green); }
+  .folder-card-body .file-sql { color: var(--gold); }
+  .folder-card-body .file-yml { color: var(--orange); }
+  .folder-card-body .file-md  { color: var(--purple); }
+  .folder-card-body .file-nb  { color: #f0883e; }
+  .folder-card-body .comment  { color: #3a4550; font-style: italic; }
+  .indent1 { padding-left: 12px; }
+  .indent2 { padding-left: 24px; }
+  .indent3 { padding-left: 36px; }
+
+  /* ─── DATA FLOW TABLE ─── */
+  .flow-section {
+    margin-top: 36px;
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+  }
+  .flow-section h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 18px;
+  }
+  .flow-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+  }
+  .flow-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .flow-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .flow-table tr:hover td { background: rgba(255,255,255,.02); }
+  .tag {
+    display: inline-block;
+    font-size: 8px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    margin: 1px 1px;
+    border: 1px solid;
+  }
+  .tag-stream { background: #1a3a1f; color: #3fb950; border-color: #2ea043; }
+  .tag-batch  { background: #0d2545; color: #58a6ff; border-color: #1f6feb; }
+  .tag-once   { background: #2d1f00; color: #d29922; border-color: #9e6a03; }
+  .tag-dbt    { background: #2d0f1e; color: #f778ba; border-color: #da3a6a; }
+  .col-layer-bronze { color: #f0883e; }
+  .col-layer-silver { color: #58a6ff; }
+  .col-layer-gold   { color: #d29922; }
+
+  /* synthetic data section */
+  .synth-section {
+    margin-top: 36px;
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+  }
+  .synth-section h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 18px;
+  }
+  .synth-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .synth-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .synth-card-header {
+    padding: 7px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+  }
+  .synth-card-body {
+    padding: 9px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8.5px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .field-name { color: var(--blue); }
+  .field-type { color: var(--orange); }
+  .field-note { color: #3a4a55; }
+
+  .footer {
+    margin-top: 40px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<div class="header">
+  <div class="header-left">
+    <h1>🏦 Banking Lakehouse Architecture</h1>
+    <p>Azure · Databricks · Delta Lake · dbt Core · Unity Catalog — Medallion Pattern</p>
+  </div>
+  <div class="badges">
+    <span class="badge badge-azure">Microsoft Azure</span>
+    <span class="badge badge-db">Databricks DLT</span>
+    <span class="badge badge-dbt">dbt Core</span>
+    <span class="badge badge-unity">Unity Catalog</span>
+    <span class="badge badge-delta">Delta Lake</span>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN PIPELINE
+════════════════════════════════════════════════════════════ -->
+<div class="pipeline">
+
+  <!-- ── LANE 1: INGESTION ── -->
+  <div class="lane lane-ingest">
+    <div class="lane-header">
+      <span>▶</span> Data Ingestion
+    </div>
+    <div class="lane-body">
+
+      <div class="section-label">🔴 Streaming Sources</div>
+      <div class="node node-src">
+        <span class="node-name">transactions</span>
+        <span class="node-sub">card / ACH / wire / SWIFT<br>~10K events/day</span>
+      </div>
+      <div class="node node-src">
+        <span class="node-name">atm_events</span>
+        <span class="node-sub">withdrawals, errors, sessions<br>~2K events/day</span>
+      </div>
+      <div class="node node-tech">
+        <span class="node-name">⚡ Azure Event Hub</span>
+        <span class="node-sub">Kafka-compat · partitioned<br>consumer groups</span>
+      </div>
+      <div class="node node-tech">
+        <span class="node-name">🔥 Spark Structured Streaming</span>
+        <span class="node-sub">Auto Loader + DLT<br>checkpointing</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="section-label">📦 Batch Sources (daily)</div>
+      <div class="node node-src">
+        <span class="node-name">user_profiles</span>
+        <span class="node-sub">Core banking CRM · ~50K</span>
+      </div>
+      <div class="node node-src">
+        <span class="node-name">accounts</span>
+        <span class="node-sub">Account master records</span>
+      </div>
+      <div class="node node-src">
+        <span class="node-name">audit_logs</span>
+        <span class="node-sub">User activity · login events<br>~100K rows/day</span>
+      </div>
+      <div class="node node-src">
+        <span class="node-name">vendor_balances</span>
+        <span class="node-sub">Interbank / 3rd-party positions</span>
+      </div>
+      <div class="node node-src">
+        <span class="node-name">historical_transactions</span>
+        <span class="node-sub">One-time migration load</span>
+      </div>
+      <div class="node node-tech">
+        <span class="node-name">🗄 Azure SQL / ADLS Gen2</span>
+        <span class="node-sub">LakeFlow Connect · ADF pipelines<br>JDBC / Parquet ingestion</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PIPE 1 -->
+  <div class="pipe">
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">stream</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">batch</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+  </div>
+
+  <!-- ── LANE 2: BRONZE ── -->
+  <div class="lane lane-bronze">
+    <div class="lane-header">
+      <span>🥉</span> Bronze — Raw
+    </div>
+    <div class="lane-body">
+      <div class="lane-note">Immutable · Append-only<br>Schema-on-read · CDF enabled<br>No business logic</div>
+
+      <div class="section-label">Streaming Tables</div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.transactions</span>
+        <span class="node-sub">raw JSON · streaming append<br>_ingest_time, _source_file</span>
+      </div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.atm_events</span>
+        <span class="node-sub">raw JSON · streaming append</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="section-label">Batch Tables</div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.user_profiles</span>
+        <span class="node-sub">daily full/incremental load</span>
+      </div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.accounts</span>
+        <span class="node-sub">daily full load</span>
+      </div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.audit_logs</span>
+        <span class="node-sub">daily partition append</span>
+      </div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.vendor_balances</span>
+        <span class="node-sub">daily snapshot</span>
+      </div>
+      <div class="node node-bronze">
+        <span class="node-name">01_bronze.historical_txns</span>
+        <span class="node-sub">one-time load ↑</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="node node-dbt">
+        <span class="node-name">🔧 dbt — Bronze Checks</span>
+        <span class="node-sub">source freshness (&lt;5 min streams)<br>not_null on PKs<br>accepted_values: txn_type, status<br>row count &gt; 0 assertion</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPE 2 -->
+  <div class="pipe">
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">DLT</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">dbt</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+  </div>
+
+  <!-- ── LANE 3: SILVER ── -->
+  <div class="lane lane-silver">
+    <div class="lane-header">
+      <span>🥈</span> Silver — Cleansed
+    </div>
+    <div class="lane-body">
+      <div class="lane-note">Validated · Deduplicated<br>PII masked · Type-cast<br>SCD Type 2 applied</div>
+
+      <div class="section-label">Fact Tables</div>
+      <div class="node node-silver">
+        <span class="node-name">02_silver.fact_transactions</span>
+        <span class="node-sub">merged stream + history<br>dedup · status validation<br>currency normalised (MXN)</span>
+      </div>
+      <div class="node node-silver">
+        <span class="node-name">02_silver.fact_atm_events</span>
+        <span class="node-sub">enriched with account_id<br>session reconstruction</span>
+      </div>
+      <div class="node node-silver">
+        <span class="node-name">02_silver.fact_audit_logs</span>
+        <span class="node-sub">user activity timeline<br>sessionized events</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="section-label">Dimension Tables</div>
+      <div class="node node-silver">
+        <span class="node-name">02_silver.dim_customers</span>
+        <span class="node-sub">SCD Type 2 · PII hashed<br>valid_from / valid_to</span>
+      </div>
+      <div class="node node-silver">
+        <span class="node-name">02_silver.dim_accounts</span>
+        <span class="node-sub">SCD Type 2 · balance tracking<br>account_status history</span>
+      </div>
+      <div class="node node-silver">
+        <span class="node-name">02_silver.dim_vendor_balances</span>
+        <span class="node-sub">interbank net positions<br>daily snapshot</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="node node-dbt">
+        <span class="node-name">🔧 dbt — Silver Tests</span>
+        <span class="node-sub">unique: transaction_id<br>FK: account_id → dim_accounts<br>amount range (no negative deposits)<br>row count reconciliation vs bronze<br>PII mask assertions</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPE 3 -->
+  <div class="pipe">
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">dbt</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">SQL</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+  </div>
+
+  <!-- ── LANE 4: GOLD ── -->
+  <div class="lane lane-gold">
+    <div class="lane-header">
+      <span>🥇</span> Gold — Business
+    </div>
+    <div class="lane-body">
+      <div class="lane-note">Aggregated · Business-ready<br>Regulatory compliant<br>dbt contracts enforced</div>
+
+      <div class="node node-gold">
+        <span class="node-name">03_gold.daily_txn_summary</span>
+        <span class="node-sub">fact_transactions + dim_accounts<br>→ daily vol, avg ticket, fees<br>by branch / region / channel</span>
+      </div>
+      <div class="node node-gold">
+        <span class="node-name">03_gold.customer_360</span>
+        <span class="node-sub">dim_customers + fact_transactions<br>+ fact_audit_logs + atm_events<br>→ full customer profile for CRM</span>
+      </div>
+      <div class="node node-gold">
+        <span class="node-name">03_gold.fraud_signals</span>
+        <span class="node-sub">fact_transactions (velocity · geo)<br>→ ML feature store ready<br>real-time anomaly scores</span>
+      </div>
+      <div class="node node-gold">
+        <span class="node-name">03_gold.regulatory_report</span>
+        <span class="node-sub">fact_transactions + dim_vendor<br>→ AML / Basel III<br>Central Bank auto-report</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="node node-dbt">
+        <span class="node-name">🔧 dbt — Gold Tests + Contracts</span>
+        <span class="node-sub">balance reconciliation assert<br>Σ(credits)−Σ(debits)=balance<br>regulatory threshold checks<br>dbt contracts: enforce schema<br>dbt exposures: document consumers</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPE 4 -->
+  <div class="pipe">
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">SQL</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+    <div class="pipe-label">API</div>
+    <div class="pipe-arrow"><div class="pipe-line"></div><div class="pipe-head"></div></div>
+  </div>
+
+  <!-- ── LANE 5: CONSUMPTION ── -->
+  <div class="lane lane-consume">
+    <div class="lane-header">
+      <span>📊</span> Consumption
+    </div>
+    <div class="lane-body">
+
+      <div class="node node-consume">
+        <span class="node-name">📊 Power BI Dashboards</span>
+        <span class="node-sub">Ops / Exec / Risk desks<br>DirectQuery on Gold layer</span>
+      </div>
+      <div class="node node-consume">
+        <span class="node-name">🤖 ML / AI Models</span>
+        <span class="node-sub">Fraud detection · Credit scoring<br>Databricks MLflow<br>Mosaic AI serving</span>
+      </div>
+      <div class="node node-consume">
+        <span class="node-name">📋 Regulatory APIs</span>
+        <span class="node-sub">SWIFT · Central Bank feeds<br>automated daily push</span>
+      </div>
+      <div class="node node-consume">
+        <span class="node-name">🔔 Real-time Alerts</span>
+        <span class="node-sub">Azure Monitor + Logic Apps<br>fraud / anomaly notif.</span>
+      </div>
+      <div class="node node-consume">
+        <span class="node-name">🔎 Databricks SQL</span>
+        <span class="node-sub">Ad-hoc analyst queries<br>BI semantic layer</span>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="node node-dbt">
+        <span class="node-name">🔧 dbt Exposures</span>
+        <span class="node-sub">Lineage to Power BI<br>Lineage to ML pipelines<br>Auto-docs for stakeholders</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end pipeline -->
+
+
+<!-- ════════════════════════════════════════════════════════════
+     BOTTOM FOUNDATION BARS
+════════════════════════════════════════════════════════════ -->
+<div class="bottom-section">
+  <div class="bottom-bar">
+    <div class="dot" style="background:#3fb950"></div>
+    <span class="bottom-bar-label" style="color:#3fb950">Unity Catalog</span>
+    <span class="bottom-bar-desc">Centralised governance · Column-level access control · Data lineage graph · PII tagging · Audit trail</span>
+  </div>
+  <div class="bottom-bar">
+    <div class="dot" style="background:#f0883e"></div>
+    <span class="bottom-bar-label" style="color:#f0883e">Spark DLT Pipelines</span>
+    <span class="bottom-bar-desc">Declarative Bronze→Silver streaming + batch · Auto-scaling · Delta Change Data Feed between all layers</span>
+  </div>
+  <div class="bottom-bar">
+    <div class="dot" style="background:#f778ba"></div>
+    <span class="bottom-bar-label" style="color:#f778ba">dbt Core</span>
+    <span class="bottom-bar-desc">Models · Tests · Contracts · Exposures · Docs site · Freshness checks · Macro library (SCD, PII masking)</span>
+  </div>
+  <div class="bottom-bar">
+    <div class="dot" style="background:#58a6ff"></div>
+    <span class="bottom-bar-label" style="color:#58a6ff">Databricks SQL</span>
+    <span class="bottom-bar-desc">Serving layer for all Gold tables · Photon-accelerated · SQL warehouses for BI + ad-hoc analytics</span>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     DATA FLOW TABLE
+════════════════════════════════════════════════════════════ -->
+<div class="flow-section">
+  <h2>📋 Complete Data Flow — Table-by-Table</h2>
+  <table class="flow-table">
+    <thead>
+      <tr>
+        <th>Source</th>
+        <th>Type</th>
+        <th>Bronze Table</th>
+        <th>Silver Table(s)</th>
+        <th>Gold Table(s)</th>
+        <th>dbt Tests</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>transactions (Event Hub)</td>
+        <td><span class="tag tag-stream">STREAM</span></td>
+        <td class="col-layer-bronze">01_bronze.transactions</td>
+        <td class="col-layer-silver">02_silver.fact_transactions</td>
+        <td class="col-layer-gold">03_gold.daily_txn_summary<br>03_gold.customer_360<br>03_gold.fraud_signals<br>03_gold.regulatory_report</td>
+        <td><span class="tag tag-dbt">freshness</span> <span class="tag tag-dbt">unique</span> <span class="tag tag-dbt">range</span> <span class="tag tag-dbt">balance_recon</span></td>
+      </tr>
+      <tr>
+        <td>atm_events (Event Hub)</td>
+        <td><span class="tag tag-stream">STREAM</span></td>
+        <td class="col-layer-bronze">01_bronze.atm_events</td>
+        <td class="col-layer-silver">02_silver.fact_atm_events</td>
+        <td class="col-layer-gold">03_gold.customer_360<br>03_gold.fraud_signals</td>
+        <td><span class="tag tag-dbt">freshness</span> <span class="tag tag-dbt">not_null</span> <span class="tag tag-dbt">accepted_values</span></td>
+      </tr>
+      <tr>
+        <td>user_profiles (Azure SQL)</td>
+        <td><span class="tag tag-batch">BATCH</span></td>
+        <td class="col-layer-bronze">01_bronze.user_profiles</td>
+        <td class="col-layer-silver">02_silver.dim_customers</td>
+        <td class="col-layer-gold">03_gold.customer_360</td>
+        <td><span class="tag tag-dbt">unique</span> <span class="tag tag-dbt">not_null</span> <span class="tag tag-dbt">pii_masked</span></td>
+      </tr>
+      <tr>
+        <td>accounts (Azure SQL)</td>
+        <td><span class="tag tag-batch">BATCH</span></td>
+        <td class="col-layer-bronze">01_bronze.accounts</td>
+        <td class="col-layer-silver">02_silver.dim_accounts</td>
+        <td class="col-layer-gold">03_gold.daily_txn_summary<br>03_gold.customer_360</td>
+        <td><span class="tag tag-dbt">unique</span> <span class="tag tag-dbt">relationships</span> <span class="tag tag-dbt">scd_validity</span></td>
+      </tr>
+      <tr>
+        <td>audit_logs (Azure SQL)</td>
+        <td><span class="tag tag-batch">BATCH</span></td>
+        <td class="col-layer-bronze">01_bronze.audit_logs</td>
+        <td class="col-layer-silver">02_silver.fact_audit_logs</td>
+        <td class="col-layer-gold">03_gold.customer_360</td>
+        <td><span class="tag tag-dbt">not_null</span> <span class="tag tag-dbt">accepted_values</span> <span class="tag tag-dbt">row_count</span></td>
+      </tr>
+      <tr>
+        <td>vendor_balances (ADLS)</td>
+        <td><span class="tag tag-batch">BATCH</span></td>
+        <td class="col-layer-bronze">01_bronze.vendor_balances</td>
+        <td class="col-layer-silver">02_silver.dim_vendor_balances</td>
+        <td class="col-layer-gold">03_gold.regulatory_report</td>
+        <td><span class="tag tag-dbt">not_null</span> <span class="tag tag-dbt">range</span> <span class="tag tag-dbt">currency_check</span></td>
+      </tr>
+      <tr>
+        <td>historical_txns (ADLS)</td>
+        <td><span class="tag tag-once">ONE-TIME</span></td>
+        <td class="col-layer-bronze">01_bronze.historical_txns</td>
+        <td class="col-layer-silver">02_silver.fact_transactions<br>(merged)</td>
+        <td class="col-layer-gold">03_gold.daily_txn_summary<br>03_gold.regulatory_report</td>
+        <td><span class="tag tag-dbt">unique</span> <span class="tag tag-dbt">not_null</span> <span class="tag tag-dbt">row_count_assert</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SYNTHETIC DATA SCHEMA
+════════════════════════════════════════════════════════════ -->
+<div class="synth-section">
+  <h2>🧪 Synthetic Data Schema — Fields to Generate</h2>
+  <div class="synth-grid">
+
+    <div class="synth-card">
+      <div class="synth-card-header" style="color:#3fb950; border-color:#2ea043">transactions <span style="color:#3a4550;font-weight:400"> · ~10K/day · STREAM</span></div>
+      <div class="synth-card-body">
+        <div><span class="field-name">transaction_id</span> <span class="field-type">uuid</span></div>
+        <div><span class="field-name">account_id</span> <span class="field-type">str</span> <span class="field-note">FK → accounts</span></div>
+        <div><span class="field-name">amount</span> <span class="field-type">decimal</span> <span class="field-note">0.01–500,000</span></div>
+        <div><span class="field-name">currency</span> <span class="field-type">str</span> <span class="field-note">MXN|USD|EUR</span></div>
+        <div><span class="field-name">txn_type</span> <span class="field-type">str</span> <span class="field-note">debit|credit|transfer</span></div>
+        <div><span class="field-name">channel</span> <span class="field-type">str</span> <span class="field-note">ATM|card|wire|ACH|SWIFT</span></div>
+        <div><span class="field-name">merchant_id</span> <span class="field-type">str</span> <span class="field-note">nullable</span></div>
+        <div><span class="field-name">status</span> <span class="field-type">str</span> <span class="field-note">approved|declined|pending</span></div>
+        <div><span class="field-name">country_code</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">timestamp</span> <span class="field-type">timestamp</span></div>
+        <div><span class="field-name">is_fraud</span> <span class="field-type">bool</span> <span class="field-note">~0.5% true</span></div>
+      </div>
+    </div>
+
+    <div class="synth-card">
+      <div class="synth-card-header" style="color:#3fb950; border-color:#2ea043">atm_events <span style="color:#3a4550;font-weight:400"> · ~2K/day · STREAM</span></div>
+      <div class="synth-card-body">
+        <div><span class="field-name">event_id</span> <span class="field-type">uuid</span></div>
+        <div><span class="field-name">atm_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">account_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">event_type</span> <span class="field-type">str</span> <span class="field-note">withdrawal|balance_check|error</span></div>
+        <div><span class="field-name">amount</span> <span class="field-type">decimal</span> <span class="field-note">nullable</span></div>
+        <div><span class="field-name">error_code</span> <span class="field-type">str</span> <span class="field-note">nullable</span></div>
+        <div><span class="field-name">location_lat</span> <span class="field-type">float</span></div>
+        <div><span class="field-name">location_lng</span> <span class="field-type">float</span></div>
+        <div><span class="field-name">timestamp</span> <span class="field-type">timestamp</span></div>
+      </div>
+    </div>
+
+    <div class="synth-card">
+      <div class="synth-card-header" style="color:#58a6ff; border-color:#1f6feb">user_profiles <span style="color:#3a4550;font-weight:400"> · ~50K · BATCH</span></div>
+      <div class="synth-card-body">
+        <div><span class="field-name">user_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">full_name</span> <span class="field-type">str</span> <span class="field-note">masked in silver</span></div>
+        <div><span class="field-name">email</span> <span class="field-type">str</span> <span class="field-note">sha256 in silver</span></div>
+        <div><span class="field-name">phone</span> <span class="field-type">str</span> <span class="field-note">masked in silver</span></div>
+        <div><span class="field-name">kyc_tier</span> <span class="field-type">int</span> <span class="field-note">1|2|3</span></div>
+        <div><span class="field-name">risk_score</span> <span class="field-type">float</span> <span class="field-note">0.0–1.0</span></div>
+        <div><span class="field-name">nationality</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">date_of_birth</span> <span class="field-type">date</span></div>
+        <div><span class="field-name">created_at</span> <span class="field-type">timestamp</span></div>
+        <div><span class="field-name">updated_at</span> <span class="field-type">timestamp</span></div>
+      </div>
+    </div>
+
+    <div class="synth-card">
+      <div class="synth-card-header" style="color:#58a6ff; border-color:#1f6feb">accounts <span style="color:#3a4550;font-weight:400"> · ~50K · BATCH</span></div>
+      <div class="synth-card-body">
+        <div><span class="field-name">account_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">user_id</span> <span class="field-type">str</span> <span class="field-note">FK → user_profiles</span></div>
+        <div><span class="field-name">account_type</span> <span class="field-type">str</span> <span class="field-note">checking|savings|credit</span></div>
+        <div><span class="field-name">balance</span> <span class="field-type">decimal</span></div>
+        <div><span class="field-name">credit_limit</span> <span class="field-type">decimal</span> <span class="field-note">nullable</span></div>
+        <div><span class="field-name">currency</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">status</span> <span class="field-type">str</span> <span class="field-note">active|frozen|closed</span></div>
+        <div><span class="field-name">branch_code</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">opened_at</span> <span class="field-type">date</span></div>
+      </div>
+    </div>
+
+    <div class="synth-card">
+      <div class="synth-card-header" style="color:#58a6ff; border-color:#1f6feb">audit_logs <span style="color:#3a4550;font-weight:400"> · ~100K/day · BATCH</span></div>
+      <div class="synth-card-body">
+        <div><span class="field-name">log_id</span> <span class="field-type">uuid</span></div>
+        <div><span class="field-name">user_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">event_type</span> <span class="field-type">str</span> <span class="field-note">login|logout|pw_change|transfer_init</span></div>
+        <div><span class="field-name">ip_address</span> <span class="field-type">str</span> <span class="field-note">masked in silver</span></div>
+        <div><span class="field-name">device_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">device_type</span> <span class="field-type">str</span> <span class="field-note">mobile|web|ATM</span></div>
+        <div><span class="field-name">success</span> <span class="field-type">bool</span></div>
+        <div><span class="field-name">timestamp</span> <span class="field-type">timestamp</span></div>
+      </div>
+    </div>
+
+    <div class="synth-card">
+      <div class="synth-card-header" style="color:#d29922; border-color:#9e6a03">vendor_balances <span style="color:#3a4550;font-weight:400"> · daily · BATCH</span></div>
+      <div class="synth-card-body">
+        <div><span class="field-name">vendor_id</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">bank_code</span> <span class="field-type">str</span> <span class="field-note">BBVA|BANAMEX|HSBC</span></div>
+        <div><span class="field-name">net_position</span> <span class="field-type">decimal</span></div>
+        <div><span class="field-name">currency</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">settlement_date</span> <span class="field-type">date</span></div>
+        <div><span class="field-name">position_type</span> <span class="field-type">str</span> <span class="field-note">nostro|vostro</span></div>
+        <div><span class="field-name">reporting_entity</span> <span class="field-type">str</span></div>
+        <div><span class="field-name">created_at</span> <span class="field-type">timestamp</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     FOLDER STRUCTURE
+════════════════════════════════════════════════════════════ -->
+<div class="folder-section">
+  <h2>📁 Full Project Folder Structure</h2>
+  <div class="folder-grid">
+
+    <!-- Card 1: Root + Ingestion -->
+    <div class="folder-card">
+      <div class="folder-card-header" style="color:#3fb950; border-color:#2ea043">📦 Root + Ingestion Layer</div>
+      <div class="folder-card-body">
+        <div><span class="dir">banking-lakehouse/</span></div>
+        <div class="indent1"><span class="file-yml">databricks.yml</span> <span class="comment"># asset bundle config</span></div>
+        <div class="indent1"><span class="file-md">README.md</span></div>
+        <div class="indent1"><span class="file-yml">requirements.txt</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">ingestion/</span></div>
+        <div class="indent2"><span class="dir">streaming/</span></div>
+        <div class="indent3"><span class="file-nb">01_stream_transactions.py</span></div>
+        <div class="indent3"><span class="file-nb">02_stream_atm_events.py</span></div>
+        <div class="indent3"><span class="file-yml">dlt_pipeline_streaming.yml</span></div>
+        <div class="indent2"><span class="dir">batch/</span></div>
+        <div class="indent3"><span class="file-nb">01_ingest_user_profiles.py</span></div>
+        <div class="indent3"><span class="file-nb">02_ingest_accounts.py</span></div>
+        <div class="indent3"><span class="file-nb">03_ingest_audit_logs.py</span></div>
+        <div class="indent3"><span class="file-nb">04_ingest_vendor_balances.py</span></div>
+        <div class="indent3"><span class="file-nb">05_ingest_historical_txns.py</span></div>
+        <div class="indent3"><span class="file-yml">adf_pipeline_batch.json</span></div>
+        <div class="indent2"><span class="dir">schemas/</span></div>
+        <div class="indent3"><span class="file-py">transactions_schema.py</span></div>
+        <div class="indent3"><span class="file-py">atm_events_schema.py</span></div>
+      </div>
+    </div>
+
+    <!-- Card 2: dbt Project -->
+    <div class="folder-card">
+      <div class="folder-card-header" style="color:#f778ba; border-color:#da3a6a">🔧 dbt_banking/ — Models</div>
+      <div class="folder-card-body">
+        <div><span class="dir">dbt_banking/</span></div>
+        <div class="indent1"><span class="file-yml">dbt_project.yml</span></div>
+        <div class="indent1"><span class="file-yml">profiles.yml</span></div>
+        <div class="indent1"><span class="file-md">README.md</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">models/</span></div>
+        <div class="indent2"><span class="dir">bronze/</span></div>
+        <div class="indent3"><span class="file-yml">sources.yml</span> <span class="comment"># freshness defs</span></div>
+        <div class="indent3"><span class="file-yml">schema.yml</span> <span class="comment"># source tests</span></div>
+        <div class="indent2"><span class="dir">silver/</span></div>
+        <div class="indent3"><span class="file-sql">stg_transactions.sql</span></div>
+        <div class="indent3"><span class="file-sql">stg_atm_events.sql</span></div>
+        <div class="indent3"><span class="file-sql">stg_audit_logs.sql</span></div>
+        <div class="indent3"><span class="file-sql">dim_customers.sql</span> <span class="comment"># SCD2</span></div>
+        <div class="indent3"><span class="file-sql">dim_accounts.sql</span> <span class="comment"># SCD2</span></div>
+        <div class="indent3"><span class="file-sql">dim_vendor_balances.sql</span></div>
+        <div class="indent3"><span class="file-sql">fact_transactions.sql</span></div>
+        <div class="indent3"><span class="file-sql">fact_atm_events.sql</span></div>
+        <div class="indent3"><span class="file-sql">fact_audit_logs.sql</span></div>
+        <div class="indent3"><span class="file-yml">schema.yml</span> <span class="comment"># silver tests</span></div>
+        <div class="indent2"><span class="dir">gold/</span></div>
+        <div class="indent3"><span class="file-sql">daily_txn_summary.sql</span></div>
+        <div class="indent3"><span class="file-sql">customer_360.sql</span></div>
+        <div class="indent3"><span class="file-sql">fraud_signals.sql</span></div>
+        <div class="indent3"><span class="file-sql">regulatory_report.sql</span></div>
+        <div class="indent3"><span class="file-yml">schema.yml</span> <span class="comment"># gold tests</span></div>
+        <div class="indent3"><span class="file-yml">contracts.yml</span> <span class="comment"># dbt contracts</span></div>
+      </div>
+    </div>
+
+    <!-- Card 3: dbt Tests + Macros + Orchestration -->
+    <div class="folder-card">
+      <div class="folder-card-header" style="color:#f778ba; border-color:#da3a6a">🔧 dbt Tests · Macros · Orchestration</div>
+      <div class="folder-card-body">
+        <div><span class="dir">dbt_banking/</span></div>
+        <div class="indent1"><span class="dir">tests/</span></div>
+        <div class="indent2"><span class="dir">generic/</span></div>
+        <div class="indent3"><span class="file-sql">is_pii_masked.sql</span></div>
+        <div class="indent3"><span class="file-sql">amount_is_positive.sql</span></div>
+        <div class="indent3"><span class="file-sql">currency_is_valid.sql</span></div>
+        <div class="indent2"><span class="dir">singular/</span></div>
+        <div class="indent3"><span class="file-sql">balance_reconciliation.sql</span></div>
+        <div class="indent3"><span class="file-sql">txn_row_count_vs_bronze.sql</span></div>
+        <div class="indent3"><span class="file-sql">regulatory_threshold.sql</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">macros/</span></div>
+        <div class="indent2"><span class="file-sql">mask_pii.sql</span></div>
+        <div class="indent2"><span class="file-sql">scd_type2.sql</span></div>
+        <div class="indent2"><span class="file-sql">generate_surrogate_key.sql</span></div>
+        <div class="indent2"><span class="file-sql">deduplicate.sql</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="file-yml">exposures.yml</span> <span class="comment"># Power BI, ML consumers</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">seeds/</span></div>
+        <div class="indent2"><span class="file-py">currency_codes.csv</span></div>
+        <div class="indent2"><span class="file-py">bank_codes.csv</span></div>
+        <div>&nbsp;</div>
+        <div><span class="dir">orchestration/</span></div>
+        <div class="indent1"><span class="dir">workflows/</span></div>
+        <div class="indent2"><span class="file-yml">streaming_pipeline.yml</span></div>
+        <div class="indent2"><span class="file-yml">daily_batch_job.yml</span></div>
+        <div class="indent2"><span class="file-yml">dbt_run_job.yml</span></div>
+        <div class="indent1"><span class="dir">alerts/</span></div>
+        <div class="indent2"><span class="file-yml">fraud_alert_logic_app.json</span></div>
+      </div>
+    </div>
+
+    <!-- Card 4: Synthetic Data -->
+    <div class="folder-card">
+      <div class="folder-card-header" style="color:#d29922; border-color:#9e6a03">🧪 Synthetic Data Generator</div>
+      <div class="folder-card-body">
+        <div><span class="dir">synthetic_data/</span></div>
+        <div class="indent1"><span class="file-py">generate_all.py</span> <span class="comment"># entrypoint</span></div>
+        <div class="indent1"><span class="file-yml">config.yml</span> <span class="comment"># volume settings</span></div>
+        <div class="indent1"><span class="file-py">requirements.txt</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">generators/</span></div>
+        <div class="indent2"><span class="file-py">transactions.py</span></div>
+        <div class="indent2"><span class="file-py">atm_events.py</span></div>
+        <div class="indent2"><span class="file-py">user_profiles.py</span></div>
+        <div class="indent2"><span class="file-py">accounts.py</span></div>
+        <div class="indent2"><span class="file-py">audit_logs.py</span></div>
+        <div class="indent2"><span class="file-py">vendor_balances.py</span></div>
+        <div class="indent2"><span class="file-py">historical_txns.py</span></div>
+        <div class="indent2"><span class="file-py">fraud_injector.py</span> <span class="comment"># 0.5% fraud rate</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">publishers/</span></div>
+        <div class="indent2"><span class="file-py">event_hub_publisher.py</span></div>
+        <div class="indent2"><span class="file-py">adls_uploader.py</span></div>
+        <div class="indent2"><span class="file-py">sql_loader.py</span></div>
+        <div>&nbsp;</div>
+        <div class="indent1"><span class="dir">output/</span></div>
+        <div class="indent2"><span class="file-py">user_profiles.parquet</span></div>
+        <div class="indent2"><span class="file-py">accounts.parquet</span></div>
+        <div class="indent2"><span class="file-py">historical_txns.parquet</span></div>
+      </div>
+    </div>
+
+    <!-- Card 5: Notebooks + Config -->
+    <div class="folder-card">
+      <div class="folder-card-header" style="color:#58a6ff; border-color:#1f6feb">📓 Notebooks + Infrastructure</div>
+      <div class="folder-card-body">
+        <div><span class="dir">notebooks/</span></div>
+        <div class="indent1"><span class="dir">exploration/</span></div>
+        <div class="indent2"><span class="file-nb">01_data_profile_bronze.py</span></div>
+        <div class="indent2"><span class="file-nb">02_fraud_eda.py</span></div>
+        <div class="indent2"><span class="file-nb">03_regulatory_analysis.py</span></div>
+        <div class="indent1"><span class="dir">ml/</span></div>
+        <div class="indent2"><span class="file-nb">fraud_feature_engineering.py</span></div>
+        <div class="indent2"><span class="file-nb">fraud_model_train.py</span></div>
+        <div class="indent2"><span class="file-nb">credit_score_model.py</span></div>
+        <div>&nbsp;</div>
+        <div><span class="dir">infra/</span></div>
+        <div class="indent1"><span class="dir">terraform/</span></div>
+        <div class="indent2"><span class="file-yml">main.tf</span></div>
+        <div class="indent2"><span class="file-yml">event_hub.tf</span></div>
+        <div class="indent2"><span class="file-yml">databricks.tf</span></div>
+        <div class="indent2"><span class="file-yml">adls.tf</span></div>
+        <div class="indent2"><span class="file-yml">unity_catalog.tf</span></div>
+        <div class="indent2"><span class="file-yml">variables.tf</span></div>
+        <div>&nbsp;</div>
+        <div><span class="dir">docs/</span></div>
+        <div class="indent1"><span class="file-md">architecture.md</span></div>
+        <div class="indent1"><span class="file-md">data_dictionary.md</span></div>
+        <div class="indent1"><span class="file-md">runbook.md</span></div>
+      </div>
+    </div>
+
+    <!-- Card 6: CI/CD -->
+    <div class="folder-card">
+      <div class="folder-card-header" style="color:#bc8cff; border-color:#8957e5">🚀 CI/CD + Unity Catalog Config</div>
+      <div class="folder-card-body">
+        <div><span class="dir">.github/workflows/</span></div>
+        <div class="indent1"><span class="file-yml">ci_dbt_tests.yml</span> <span class="comment"># PR checks</span></div>
+        <div class="indent1"><span class="file-yml">cd_deploy_pipelines.yml</span></div>
+        <div class="indent1"><span class="file-yml">cd_dbt_run_prod.yml</span></div>
+        <div>&nbsp;</div>
+        <div><span class="dir">unity_catalog/</span></div>
+        <div class="indent1"><span class="file-yml">catalogs.yml</span></div>
+        <div class="indent1"><span class="dir">schemas/</span></div>
+        <div class="indent2"><span class="file-yml">banking_bronze.yml</span></div>
+        <div class="indent2"><span class="file-yml">banking_silver.yml</span></div>
+        <div class="indent2"><span class="file-yml">banking_gold.yml</span></div>
+        <div class="indent1"><span class="dir">access_controls/</span></div>
+        <div class="indent2"><span class="file-yml">analysts_grants.yml</span></div>
+        <div class="indent2"><span class="file-yml">ml_team_grants.yml</span></div>
+        <div class="indent2"><span class="file-yml">regulatory_grants.yml</span></div>
+        <div class="indent1"><span class="dir">tags/</span></div>
+        <div class="indent2"><span class="file-yml">pii_tags.yml</span></div>
+        <div class="indent2"><span class="file-yml">sensitivity_tags.yml</span></div>
+        <div>&nbsp;</div>
+        <div><span class="dir">config/</span></div>
+        <div class="indent1"><span class="file-yml">dev.env</span></div>
+        <div class="indent1"><span class="file-yml">staging.env</span></div>
+        <div class="indent1"><span class="file-yml">prod.env</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  Banking Lakehouse Architecture · Azure + Databricks + dbt Core · Medallion Pattern · Unity Catalog
+</div>
+
+</body>
+</html>
