@@ -1,10 +1,11 @@
+```text
 # Banking-Lakehouse
 
 [Sources] → [Event Hub / Azure SQL] → [Bronze] → [Silver] → [Gold] → [Consumption]
-                                           ↑          ↑         ↑
-                                        dbt tests  dbt tests  dbt tests + contracts
-                  ───────────── Unity Catalog (Governance + Lineage) ─────────────
-                  ────────────── Spark DLT Pipelines + dbt Core ──────────────────
+                                       ↑          ↑          ↑
+                                    dbt tests  dbt tests  dbt tests + contracts
+                 ───────────── Unity Catalog (Governance + Lineage) ─────────────
+                 ────────────── Spark DLT Pipelines + dbt Core ──────────────────
 
 
 Basic Structure:
