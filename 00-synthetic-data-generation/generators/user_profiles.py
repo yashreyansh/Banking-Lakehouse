@@ -89,7 +89,7 @@ def run() -> pd.DataFrame:
     df = generate()
     write(df, "user_profiles")
     print("User profiles written...")
-    #return df
+    return df
 
 
 if __name__ == "__main__":
