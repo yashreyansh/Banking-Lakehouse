@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────
+#  Banking Lakehouse — Synthetic Data Config
+# ─────────────────────────────────────────────
+
+seed: 42                        # reproducibility
+
+volumes:
+  users:               50   # total unique users
+  accounts:            55_000   # accounts (some users have 2)
+  transactions_per_day: 10_000  # streaming events/day
+  atm_events_per_day:   2_000   # streaming events/day
+  audit_logs_per_day:  100_000  # batch rows/day
+  vendor_balances:        120   # interbank positions/day
+  historical_days:        365   # days of history to backfill
+
+fraud:
+  transaction_rate:  0.005      # 0.5% of transactions are fraud
+  atm_error_rate:    0.04       # 4% of ATM events are errors
+
+pii:
+  mask_in_output: false         # set true to pre-mask (silver does it via dbt)
+
+output:
+  format: parquet               # parquet | csv | jsonl
+  dir: ./output
+
+locale: es_MX                   # Faker locale — Mexican Spanish names/addresses
+
+currencies: [MXN, USD, EUR]
+currency_weights: [0.75, 0.20, 0.05]
+
+channels: [ATM, card, wire, ACH, SWIFT]
+channel_weights: [0.25, 0.45, 0.10, 0.15, 0.05]
+
+txn_types: [debit, credit, transfer]
+txn_type_weights: [0.50, 0.35, 0.15]
+
+account_types: [checking, savings, credit]
+account_type_weights: [0.50, 0.35, 0.15]
+
+kyc_tiers: [1, 2, 3]
+kyc_weights: [0.60, 0.30, 0.10]
+
+bank_codes: [BBVA, BANAMEX, HSBC, SANTANDER, BANORTE, CITIBANAMEX]
+
+atm_event_types: [withdrawal, balance_check, deposit, error]
+atm_event_weights: [0.55, 0.25, 0.12, 0.08]
+
+audit_event_types: [login, logout, password_change, transfer_init, profile_update, failed_login]
+audit_event_weights: [0.30, 0.28, 0.05, 0.20, 0.07, 0.10]
