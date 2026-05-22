@@ -43,10 +43,27 @@ def generate(df_users):
             opened_days_ago = random.randint(0,days_open)
             opened_on = now - timedelta(days =opened_days_ago )
 
+            currency = wchoice(
+                CFG["currencies"], CFG["currency_weights"]
+            )
+
+            status = wchoice(
+                ["active","closed","frozen"], [0.88,0.05,0.07]
+            )
+            closed_on = None
+            if status=="closed":
+                closed_days_ago = random.randint(0,opened_days_ago)
+                closed_on = now - timedelta(days=closed_days_ago)
+                
             row.append({
                 "account_id" : acc_id,
                 "opened_on"  :  opened_on,
-                "user_id" : user["user_id"]
+                "closed_on": closed_on.date() if closed_on else None,
+                "user_id" : user["user_id"],
+                #"balance": balance ,
+                "status" : status,
+                "currency": currency
+
             })
     
     df = pd.DataFrame(row)

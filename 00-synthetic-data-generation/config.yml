@@ -6,7 +6,7 @@ seed: 42                        # reproducibility
 
 volumes:
   users:               50_000   # total unique users
-  accounts:            55   # accounts (some users have 2)
+  accounts:            55_000   # accounts (some users have 2)
   transactions_per_day: 10_000  # streaming events/day
   atm_events_per_day:   2_000   # streaming events/day
   audit_logs_per_day:  100_000  # batch rows/day
