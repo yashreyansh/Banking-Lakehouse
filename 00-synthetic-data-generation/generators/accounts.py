@@ -2,7 +2,7 @@ import pandas as pd
 import random
 from base import CFG, FAKER, days_ago, now_utc, seed_all, wchoice, write
 from datetime import timedelta
-
+from pathlib import Path
 
 def generate(df_users):
     if df_users is None:
@@ -62,24 +62,26 @@ def generate(df_users):
                 "user_id" : user["user_id"],
                 #"balance": balance ,
                 "status" : status,
-                "currency": currency
-
+                "currency": currency,
+                "account_type": acc_type,
+                "updated_on": now-timedelta(days = random.randint(0,days_open))
             })
     
     df = pd.DataFrame(row)
     df["opened_on"] = pd.to_datetime(df["opened_on"])
+    df["updated_on"] = pd.to_datetime(df["updated_on"])
 
     return df
 
-def run(df_users :pd.DataFrame | None=None) -> pd.DataFrame:
-    
+def load_accounts(df_users : pd.DataFrame | None=None):
     df_accounts = generate(df_users)
     write(df_accounts,'accounts')
     return df_accounts
 
 
 
-if __name__ == "__main__":
+#------------------------------------------
+def run_accounts(df_users :pd.DataFrame | None=None) -> pd.DataFrame:
 
     from pathlib import Path
     users_path = Path(__file__).parent.parent / CFG["output"]["dir"] / "user_profiles.parquet"
@@ -92,5 +94,16 @@ if __name__ == "__main__":
     else:
         df_users = pd.read_parquet(users_path)
     
-    run(df_users=df_users)
+    load_accounts(df_users=df_users)
+
+    df_accounts = generate(df_users)
+    write(df_accounts,'accounts')
+    return df_accounts
+
+
+if __name__ == "__main__":
+
+    run_accounts()
+
+    
     
