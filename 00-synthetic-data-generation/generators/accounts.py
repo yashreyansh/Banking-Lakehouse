@@ -48,7 +48,7 @@ def generate(df_users):
             )
 
             status = wchoice(
-                ["active","closed","frozen"], [0.88,0.05,0.07]
+                ["active","closed","frozen",None], [0.88,0.05,0.05,0.02]
             )
             closed_on = None
             if status=="closed":

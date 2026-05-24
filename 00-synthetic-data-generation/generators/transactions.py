@@ -42,6 +42,7 @@ def generate(df_accounts, days, per_day: int | None=None):
             "status":status,
             "txn_type":txn_type,
             "channel":channel,
+            "city": FAKER.city(),
             "_ingest_time":ts + timedelta(milliseconds=random.randint(50, 800)),
             "_source": "event_hub",
         })

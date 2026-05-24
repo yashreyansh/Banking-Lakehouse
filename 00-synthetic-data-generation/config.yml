@@ -48,3 +48,12 @@ atm_event_weights: [0.55, 0.25, 0.12, 0.08]
 
 audit_event_types: [login, logout, password_change, transfer_init, profile_update, failed_login]
 audit_event_weights: [0.30, 0.28, 0.05, 0.20, 0.07, 0.10]
+
+streaming_batch_size: 5
+
+historical_days: 50
+historical_per_day_txn: 2500
+
+historical_day_start: 200
+historical_day_end: 200
+
