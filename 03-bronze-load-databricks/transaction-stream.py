@@ -78,8 +78,45 @@ TXN_SCHEMA = StructType([
         .option("checkpointLocation", EH_TXN_NAME)
         .load()
     )
-    
+    # kafka will have topic, partition, offset, timestamp , then json (which wold have our data)
     return (
-    <will add code to write>
-    
+        raw
+        .select(
+            F.col("topic"),
+            F.col("partition"),
+            F.col("offset"),
+            F.col("timestamp").alias("kafka_timestamp"),
+            F.from_json(
+                F.col("value").cast("string"),    # as kafka stores the data in binary format
+                TXN_SCHEMA
+                ).alias("data")
+        )
+        .select(
+            "data.*",
+            "topic",
+            "partition",
+            "offset","kafka_timestamp",
+            F.current_timestamp().alias("_dlt_ingest_time"),
+            F.lit(EH_TXN_NAME).alias("_pipeline_source")
+        )
     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
