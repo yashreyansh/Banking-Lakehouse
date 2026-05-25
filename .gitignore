@@ -4,3 +4,4 @@
 *.parquet*
 
 *.env*
+*_checkpoint.json*

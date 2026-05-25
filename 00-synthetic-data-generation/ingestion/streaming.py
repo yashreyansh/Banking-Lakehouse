@@ -22,7 +22,8 @@ import os
 load_dotenv()
 
 EVENTHUB_CONNECTION_STRING = os.getenv("EVENTHUB_CONNECTION_STRING")
-Endpoint = os.getenv("Endpoint")
+#Endpoint = os.getenv("Endpoint")
+EVENTHUB_NAME = os.getenv("EVENTHUB_NAME")
 
 
 # ---- Local generator imports ────────────────────────────────────────────────
