@@ -5,9 +5,9 @@ from pyspark.sql import functions as F
 EH_NAMESPACE = "banking-lakehouse-eventhub-transactions"
 EH_TXN_NAME = "transactioneventhub"
 
-eventhub_key = ""# will add secrests in scope
+eventhub_key = dbutils.secrets.get(scope="banking-lakehouse", key="eventhub_key")
 
-connection_str = dbutils.secrets.get(scope="banking_lakehouse_secret_scope", key=eventhub_key)
+#connection_str = dbutils.secrets.get(scope="banking_lakehouse_secret_scope", key=eventhub_key)
 
 CHECKPOINT_BASE = "abfss://default-container@data1test1sa.dfs.core.windows.net/checkpoint"
 TXN_CHECKPOINT   = f"{CHECKPOINT_BASE}/transactions"
@@ -23,7 +23,7 @@ def eh_kafka_config(conn_string: str, eh_name: str) -> dict:
     # SASL string — Event Hub uses connection string as the password
     sasl = (
         "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule"
-        f' required username="$ConnectionString" password="{conn_string}";'
+        f' required username="$ConnectionString" password="{eventhub_key}";'
     )
  
     return {
