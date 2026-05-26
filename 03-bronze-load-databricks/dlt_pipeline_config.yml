@@ -1,0 +1,35 @@
+
+name: banking-bronze-streaming
+
+# Where DLT writes the Bronze tables
+catalog: banking_lakehouse        # Unity Catalog catalog name
+target:  banking_bronze           # schema / database name
+
+# Pipeline mode
+continuous: true                  # true = always running streaming
+                                  # false = triggered (batch-style)
+
+# Source notebook
+libraries:
+  - notebook:
+      path: /03-databricks/DLT_transaction-stream
+
+# Cluster config — keep small for streaming
+clusters:
+  - label: default
+    num_workers: 1                # 1 worker is enough for dev/small volume
+    node_type_id: Standard_DS3_v2 # Azure: 4 cores, 14GB RAM
+    spark_conf:
+      spark.databricks.delta.preview.enabled: "true"
+
+# Development vs Production
+development: true   # set false in prod — dev mode disables some optimizations
+                    # but makes debugging easier
+
+# Notifications
+notifications:
+  - email_recipients:
+      - shreyash434@gmail.com
+    alerts:
+      - on-update-failure
+      - on-flow-failure
