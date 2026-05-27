@@ -6,24 +6,29 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://adb-7405615137760565.5.azuredatabricks.net
+      host: https://adb-7405615589046908.8.azuredatabricks.net
 
 resources:
-  pipelines:
-    banking_bronze_streaming:
+  jobs:
+    bronze_streaming_job:
       name: banking-bronze-streaming
-      catalog: banking_lakehouse
-      schema: banking_bronze
-      continuous: true
-      channel: CURRENT
-      edition: ADVANCED        # ← change from CORE to ADVANCED
-      serverless: true
+      tasks:
+        - task_key: stream_transactions
+          notebook_task:
+            notebook_path: ./03-streaming-bronze-load-databricks/transactions_stream.py
+          libraries:
+            - maven:
+                coordinates: org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
+          job_cluster_key: streaming_cluster
 
-      libraries:
-        - notebook:
-            path: ./03-bronze-load-databricks/DLT_transaction_stream.py
-
-      configuration:
-        eh_namespace: "banking-lakehouse-eventhub-transactions"
-        eh_txn_name: "transactioneventhub"
-        checkpoint_base: "abfss://default-container@data1test1sa.dfs.core.windows.net/checkpoint"
+      job_clusters:
+        - job_cluster_key: streaming_cluster
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: Standard_D4s_v3
+            num_workers: 1
+            spark_conf:
+              spark.databricks.delta.preview.enabled: "true"
+              fs.azure.account.auth.type.datastoragebanking.dfs.core.windows.net: OAuth
+              fs.azure.account.oauth.provider.type.datastoragebanking.dfs.core.windows.net: org.apache.hadoop.fs.azurebfs.oauth2.MsiTokenProvider
+              fs.azure.account.oauth2.msi.resource.id.datastoragebanking.dfs.core.windows.net: /subscriptions/6a8fef14-b836-4f8a-8eee-dd8663fbc274/resourceGroups/ResourceGrp/providers/Microsoft.Databricks/accessConnectors/Access_connector_databricks
