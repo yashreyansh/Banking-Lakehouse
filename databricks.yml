@@ -1,0 +1,29 @@
+bundle:
+  name: banking-lakehouse
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405615137760565.5.azuredatabricks.net
+
+resources:
+  pipelines:
+    banking_bronze_streaming:
+      name: banking-bronze-streaming
+      catalog: banking_lakehouse
+      schema: banking_bronze
+      continuous: true
+      channel: CURRENT
+      edition: ADVANCED        # ← change from CORE to ADVANCED
+      serverless: true
+
+      libraries:
+        - notebook:
+            path: ./03-bronze-load-databricks/DLT_transaction_stream.py
+
+      configuration:
+        eh_namespace: "banking-lakehouse-eventhub-transactions"
+        eh_txn_name: "transactioneventhub"
+        checkpoint_base: "abfss://default-container@data1test1sa.dfs.core.windows.net/checkpoint"
