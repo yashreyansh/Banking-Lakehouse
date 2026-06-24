@@ -18,7 +18,7 @@ libraries:
 clusters:
   - label: default
     num_workers: 1                # 1 worker is enough for dev/small volume
-    node_type_id: Standard_DS3_v2 # Azure: 4 cores, 14GB RAM
+    node_type_id: Standard_D4s_v3 # Azure: 4 cores, 14GB RAM
     spark_conf:
       spark.databricks.delta.preview.enabled: "true"
 
