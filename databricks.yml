@@ -1,54 +1,75 @@
 bundle:
   name: banking-lakehouse
 
+sync:
+  include:
+    - "03-streaming-bronze-load-databricks/**/*.py"
+  exclude:
+    - ".venv/**"
+    - "00-synthetic-data-generation/**"
+    - "checkpoints/**"
+    - "**/__pycache__/**"
+    - "**/*.pyc"
+    - ".env"
+    - "*.json"
+    - "*.html"
+    - "*.md"
+    - "*.txt"
+
+
 targets:
   dev:
     mode: development
     default: true
     workspace:
-      host: https://adb-7405615589046908.8.azuredatabricks.net
+      host: https://adb-7405608251876154.14.azuredatabricks.net
+  prod:
+    mode: Production
+    default: false
+    workspace:
+      host: https://adb-7405615519498491.11.azuredatabricks.net/
 
 resources:
-  jobs:
-    bronze_streaming_job:
-      name: banking-bronze-streaming
-      tasks:
-        - task_key: stream_transactions
-          notebook_task:
-            notebook_path: ./03-streaming-bronze-load-databricks/transactions_stream.py
-          libraries:
-            - maven:
-                coordinates: org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
-          job_cluster_key: streaming_cluster
-
-      job_clusters:
-        - job_cluster_key: streaming_cluster
-          new_cluster:
-            spark_version: 15.4.x-scala2.12
-            node_type_id: Standard_D4s_v3
-            num_workers: 1
-            spark_conf:
-              spark.databricks.delta.preview.enabled: "true"
-              fs.azure.account.auth.type.datastoragebanking.dfs.core.windows.net: OAuth
-              fs.azure.account.oauth.provider.type.datastoragebanking.dfs.core.windows.net: org.apache.hadoop.fs.azurebfs.oauth2.MsiTokenProvider
-              fs.azure.account.oauth2.msi.resource.id.datastoragebanking.dfs.core.windows.net: /subscriptions/6a8fef14-b836-4f8a-8eee-dd8663fbc274/resourceGroups/ResourceGrp/providers/Microsoft.Databricks/accessConnectors/Access_connector_databricks
-    banking_bronze_dlt_job:
-      name: banking-bronze-dlt-trigger
-      tasks:
-        - task_key: run_dlt_pipeline
-          pipeline_task:
-            pipeline_id: ${resources.pipelines.banking_bronze_dlt.id}
   pipelines:
     banking_bronze_dlt:
       name: banking-bronze-declarative-pipeline
       catalog: banking_lakehouse
       schema: banking_bronze
       serverless: true
-      continuous: false
-      max_allowed_consecutive_update_failures: 0
+      continuous: true
       libraries:
         - notebook:
-            path: ./03-streaming-bronze-load-databricks/declarative_transaction_stream.py
+            path: ./03-streaming-bronze-load-databricks/bronze_transaction_stream.py
       configuration:
         eh_namespace: "banking-lakehouse-eventhub-transactions"
         eh_txn_name: "transactioneventhub"
+
+    banking_silver_dlt:
+      name: banking-silver-declarative-pipeline
+      catalog: banking_lakehouse
+      schema: banking_silver
+      serverless: true
+      continuous: true
+      libraries:
+        - notebook:
+            path: ./04-streaming-silver-load-databricks/silver_transaction_stream.py
+
+
+  jobs:
+    banking_bronze_dlt_job:
+      name: banking-bronze-dlt-trigger
+      max_concurrent_runs: 1 
+      tasks:
+        - task_key: run_dlt_pipeline
+          max_retries: 0 
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.banking_bronze_dlt.id}
+    
+    banking_silver_dlt_job:
+      name: banking-silver-dlt-trigger
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: run_dlt_silver_pipeline
+          max_retries: 0
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.banking_silver_dlt.id}

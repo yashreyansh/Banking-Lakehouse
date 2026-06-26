@@ -1,7 +1,11 @@
 *.venv*
+*.vscode*
+*.databricks*
+
 *pycache*
 *temp*
 *.parquet*
 
 *.env*
 *_checkpoint.json*
+*json*

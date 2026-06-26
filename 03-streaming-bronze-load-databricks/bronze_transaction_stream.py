@@ -6,7 +6,7 @@ from pyspark.sql.types import (
     DoubleType, TimestampType
 )
 # ── Config ────────────────────────────────────────────────
-EH_NAMESPACE   = "banking-lakehouse-eventhub-transactions"
+EH_NAMESPACE   = "banking-events"
 EH_TXN_NAME    = "transactioneventhub"
 EH_TXN_CONN    = dbutils.secrets.get(
                      scope="banking-lakehouse",
@@ -43,7 +43,7 @@ TXN_SCHEMA = StructType([
 #--------------------------------
 
 @dlt.table(
-    name = "transactions_stream",
+    name = "bronze_transactions_stream",
     comment = "Transaction from kafka",
     table_properties = {
         "quality":"bronze",
@@ -76,3 +76,4 @@ def random_table_name():
             )
         
     )
+

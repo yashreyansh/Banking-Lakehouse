@@ -12,7 +12,7 @@ continuous: true                  # true = always running streaming
 # Source notebook
 libraries:
   - notebook:
-      path: /03-databricks/DLT_transaction-stream
+      path: /03-databricks/bronze_transaction_stream
 
 # Cluster config — keep small for streaming
 clusters:
