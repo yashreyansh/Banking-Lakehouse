@@ -36,8 +36,7 @@ except ImportError:
 
 # ---- CONFIG for Paths ────────────────────────────────────────────────────────
 TRANSACTIONS_FILE = Path(__file__).parent.parent /"output"/"transactions.json1"
-CHECKPOINT_FILE = Path("./checkpoints/transaction_checkpoint.json")
-
+CHECKPOINT_FILE = Path("00-synthetic-data-generation/ingestion/checkpoints/transaction_checkpoint.json")
 
 def update_checkpoint(transaction_idx: int):
     """Safely updates or creates the checkpoint file tracking the line index."""

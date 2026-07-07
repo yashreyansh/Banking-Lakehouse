@@ -5,13 +5,28 @@ from pyspark.sql.types import (
     StructType, StructField, StringType,
     DoubleType, TimestampType
 )
+import os
+
+
+
 # ── Config ────────────────────────────────────────────────
+
 EH_NAMESPACE   = "banking-events"
 EH_TXN_NAME    = "transactioneventhub"
-EH_TXN_CONN    = dbutils.secrets.get(
-                     scope="banking-lakehouse",
-                     key="eventhub_key"
-                 )
+secret_scope= "banking-lakehouse-dev"
+
+def get_secret(key: str, scope: str ) -> str:
+    try:
+        return dbutils.secrets.get(scope=secret_scope, key=key)
+    except:
+        return os.getenv(key)
+
+#EH_TXN_CONN    = dbutils.secrets.get( scope=secret_scope, key="eventhub_key")
+EH_TXN_CONN = get_secret(scope=secret_scope,key="eventhub_key")
+
+
+
+
 bootstrap = f"{EH_NAMESPACE}.servicebus.windows.net:9093"
 sasl = (
     "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule"
@@ -26,7 +41,7 @@ kafka_options = {
     "kafka.request.timeout.ms": "60000",
     "kafka.session.timeout.ms": "30000",
     "failOnDataLoss":           "false",
-    "startingOffsets":          "latest",
+    "startingOffsets":          "earliest", ## latest
 }
 TXN_SCHEMA = StructType([
     StructField("transaction_id", StringType(),    True),
